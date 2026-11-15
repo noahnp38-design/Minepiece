@@ -10,8 +10,8 @@ import net.minecraft.client.renderer.rendertype.RenderTypes;
  * pour que leurs positions soient copiees depuis le modele du joueur.
  */
 public class RaceExtrasModel extends Model<RaceExtrasModel.State> {
-	/** Etat passe au modele : juste le temps, pour animer. */
-	public record State(float ageInTicks) {}
+	/** Etat passe au modele : le temps (flamme, respiration) et la pose des ailes (battement, ouverture). */
+	public record State(float ageInTicks, WingPose wing) {}
 
 	private final ModelPart wingLeft;
 	private final ModelPart wingRight;
@@ -37,12 +37,28 @@ public class RaceExtrasModel extends Model<RaceExtrasModel.State> {
 
 	@Override
 	public void setupAnim(State state) {
-		float flap = (float) Math.sin(state.ageInTicks() * 0.12F) * 0.08F;
+		WingPose wing = state.wing();
+
+		// Battement : angle de chaque aile = sinus de la phase. Le décalage (stagger) fait battre l'aile droite
+		// légèrement après la gauche, ce qui donne un mouvement vivant plutôt qu'un balancier.
+		float flapLeft = (float) Math.sin(wing.phase()) * wing.amp();
+		float flapRight = (float) Math.sin(wing.phase() + wing.stagger()) * wing.amp();
+		// Les ailes balaient aussi un peu vers l'avant / l'arrière (décalé d'un quart de cycle) : plus naturel.
+		float sweepLeft = (float) Math.cos(wing.phase()) * wing.amp() * 0.25F;
+		float sweepRight = (float) Math.cos(wing.phase() + wing.stagger()) * wing.amp() * 0.25F;
+		// Au repos : léger mouvement lent, pour que les ailes ne soient jamais figées.
+		float idle = (float) Math.sin(state.ageInTicks() * 0.07F) * 0.04F * (1.0F - wing.open());
+		// Ouvertes : ailes plus relevées et moins rabattues vers l'arrière.
+		float raise = wing.open() * 0.20F;
+		float sweep = RaceModels.WING_SWEEP * (1.0F - 0.5F * wing.open());
+
 		if (wingLeft != null) {
-			wingLeft.zRot = RaceModels.WING_TILT_LEFT + flap;
+			wingLeft.zRot = RaceModels.WING_TILT_LEFT - raise - flapLeft + idle;
+			wingLeft.yRot = -sweep - sweepLeft;
 		}
 		if (wingRight != null) {
-			wingRight.zRot = RaceModels.WING_TILT_RIGHT - flap;
+			wingRight.zRot = RaceModels.WING_TILT_RIGHT + raise + flapRight - idle;
+			wingRight.yRot = sweep + sweepRight;
 		}
 		if (flame != null) {
 			flame.zRot = (float) Math.sin(state.ageInTicks() * 0.45F) * 0.14F;

@@ -1,5 +1,6 @@
 package minepiece.noah.network;
 
+import minepiece.noah.ability.FruitAbilities;
 import minepiece.noah.data.CombatStyle;
 import minepiece.noah.data.Faction;
 import minepiece.noah.data.ModAttachments;
@@ -19,6 +20,7 @@ public final class ModNetworking {
 		// Les payloads doivent être enregistrés des deux côtés (cette classe est dans "main").
 		PayloadTypeRegistry.clientboundPlay().register(OpenSelectionPayload.TYPE, OpenSelectionPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectionPayload.TYPE, SelectionPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(UseAbilityPayload.TYPE, UseAbilityPayload.CODEC);
 
 		// À la connexion : si le joueur n'a pas encore de profil, on lui demande d'en choisir un.
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -27,6 +29,15 @@ public final class ModNetworking {
 				RaceEffects.apply(player);
 			} else {
 				ServerPlayNetworking.send(player, new OpenSelectionPayload());
+			}
+		});
+
+		// Attaque de fruit du démon : le serveur vérifie le fruit, la recharge, etc.
+		ServerPlayNetworking.registerGlobalReceiver(UseAbilityPayload.TYPE, (payload, context) -> {
+			if (payload.pressed()) {
+				FruitAbilities.use(context.player(), payload.slot());
+			} else {
+				FruitAbilities.release(context.player(), payload.slot());
 			}
 		});
 

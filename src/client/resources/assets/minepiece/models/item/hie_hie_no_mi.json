@@ -1,0 +1,6 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "minepiece:item/hie_hie_no_mi"
+	}
+}

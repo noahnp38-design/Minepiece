@@ -7,5 +7,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey;
 public final class RaceRenderData {
 	public static final RenderStateDataKey<Race> RACE = RenderStateDataKey.create(() -> "minepiece race");
 
+	/** Pose des ailes (battement, ouverture) : calculée par WingAnimator pour les races à ailes. */
+	public static final RenderStateDataKey<WingPose> WING = RenderStateDataKey.create(() -> "minepiece wing");
+
 	private RaceRenderData() {}
 }

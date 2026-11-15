@@ -3,8 +3,9 @@
 	"package": "minepiece.noah.client.mixin",
 	"compatibilityLevel": "JAVA_25",
 	"client": [
-		"ExampleClientMixin",
-		"AvatarRendererMixin"
+		"AvatarRendererMixin",
+		"ScreenPanoramaMixin",
+		"LogoRendererMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -20,7 +20,7 @@ public final class RaceModels {
 
 	public static final float WING_TILT_LEFT = -0.35F;
 	public static final float WING_TILT_RIGHT = 0.35F;
-	private static final float WING_SWEEP = 0.5F;
+	public static final float WING_SWEEP = 0.5F;
 
 	public static final ModelLayerLocation SKYPIEAN = loc("skypiean");
 	public static final ModelLayerLocation FISHMAN = loc("fishman");

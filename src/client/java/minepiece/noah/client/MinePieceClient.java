@@ -1,6 +1,7 @@
 package minepiece.noah.client;
 
 import minepiece.noah.client.render.RaceRendering;
+import minepiece.noah.client.title.TitleBackground;
 import minepiece.noah.network.OpenSelectionPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -13,6 +14,10 @@ public class MinePieceClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		RaceRendering.init();
+		TitleBackground.init();
+		AbilityKeys.init();
+		ProfileKey.init();
+		RaceMovement.init();
 
 		ClientPlayNetworking.registerGlobalReceiver(OpenSelectionPayload.TYPE,
 				(payload, context) -> pendingOpen = true);

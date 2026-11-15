@@ -63,6 +63,11 @@ public class RaceLayer extends RenderLayer<AvatarRenderState, PlayerModel> {
 		}
 	}
 
+	private static WingPose wingPose(AvatarRenderState state) {
+		WingPose pose = state.getData(RaceRenderData.WING);
+		return pose == null ? WingPose.REST : pose;
+	}
+
 	/** Redessine le corps du joueur avec sa propre peau, multipliee par une couleur. */
 	private void tint(PoseStack poseStack, SubmitNodeCollector nodeCollector, int light,
 			AvatarRenderState state, int argb) {
@@ -78,7 +83,7 @@ public class RaceLayer extends RenderLayer<AvatarRenderState, PlayerModel> {
 		OrderedSubmitNodeCollector ordered = nodeCollector.order(last ? 2 : 1);
 		ArmorRenderer.submitTransformCopyingModel(
 				this.getParentModel(), state,
-				model, new RaceExtrasModel.State(state.ageInTicks),
+				model, new RaceExtrasModel.State(state.ageInTicks, wingPose(state)),
 				true, ordered, poseStack,
 				RenderTypes.armorCutoutNoCull(EXTRAS_TEXTURE), light, OverlayTexture.NO_OVERLAY,
 				state.outlineColor);

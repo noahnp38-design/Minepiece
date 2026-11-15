@@ -1,7 +1,11 @@
 package minepiece.noah;
 
+import minepiece.noah.ability.FruitAbilities;
+import minepiece.noah.ability.RacePowers;
+import minepiece.noah.command.ModCommands;
 import minepiece.noah.data.ModAttachments;
 import minepiece.noah.data.RaceEffects;
+import minepiece.noah.item.ModItems;
 import minepiece.noah.network.ModNetworking;
 import net.fabricmc.api.ModInitializer;
 
@@ -18,8 +22,12 @@ public class MinePiece implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ModAttachments.init();
+		ModItems.init();
 		ModNetworking.init();
+		FruitAbilities.init();
 		RaceEffects.init();
+		RacePowers.init();
+		ModCommands.init();
 		LOGGER.info("MinePiece charge !");
 	}
 
