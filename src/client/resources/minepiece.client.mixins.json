@@ -5,7 +5,17 @@
 	"client": [
 		"AvatarRendererMixin",
 		"ScreenPanoramaMixin",
-		"LogoRendererMixin"
+		"LogoRendererMixin",
+		"HideArmorLayerMixin",
+		"HideHandItemMixin",
+		"HideHeadItemMixin",
+		"HideWingsMixin",
+		"HideCapeMixin",
+		"PlayerModelMixin",
+		"LivingEntityRendererMixin",
+		"MinecraftGlowMixin",
+		"FirstPersonIshiMixin",
+		"CameraIshiMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

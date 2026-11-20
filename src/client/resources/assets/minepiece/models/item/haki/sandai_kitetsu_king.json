@@ -1,0 +1,7 @@
+{
+ "parent": "minepiece:item/sandai_kitetsu",
+ "textures": {
+  "0": "minepiece:item/haki/sandai_kitetsu_king",
+  "particle": "minepiece:item/haki/sandai_kitetsu_king"
+ }
+}

@@ -24,48 +24,160 @@ final class FireExplosion {
 	private FireExplosion() {}
 
 	static void explode(ServerLevel level, UUID owner, Vec3 c, double radius, float damage) {
+		explode(level, owner, c, radius, damage, true);
+	}
+
+	/** vfx = false : les particules d'explosion sont fournies par l'appelant (Hiken : HikenFx.impact). Dégâts inchangés. */
+	static void explode(ServerLevel level, UUID owner, Vec3 c, double radius, float damage, boolean vfx) {
 		MeraConfig cfg = MeraConfig.get();
 
 		level.playSound(null, c.x, c.y, c.z, SoundEvents.GENERIC_EXPLODE, SoundSource.BLOCKS,
 				(float) Math.min(8.0, 2.0 + radius * 0.4), (float) Math.max(0.5, 1.1 - radius * 0.03));
 
-		// Effets visuels (quelques gros paquets plutôt que beaucoup de petits : bon pour les performances).
-		level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
-		if (radius >= 8.0) {
-			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 4, radius * 0.3, radius * 0.2, radius * 0.3, 0);
+		if (vfx) {
+			// Effets visuels (quelques gros paquets plutôt que beaucoup de petits : bon pour les performances).
+			level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 1, 0, 0, 0, 0);
+			if (radius >= 8.0) {
+				level.sendParticles(ParticleTypes.EXPLOSION_EMITTER, c.x, c.y, c.z, 4, radius * 0.3, radius * 0.2, radius * 0.3, 0);
+			}
+			level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, (int) Math.min(300, 40 + radius * 15),
+					radius * 0.35, radius * 0.3, radius * 0.35, 0.12);
+			level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, (int) Math.min(120, 20 + radius * 6),
+					radius * 0.4, radius * 0.35, radius * 0.4, 0.05);
+			level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, (int) Math.min(60, radius * 3),
+					radius * 0.3, radius * 0.2, radius * 0.3, 0);
 		}
-		level.sendParticles(ParticleTypes.FLAME, c.x, c.y, c.z, (int) Math.min(300, 40 + radius * 15),
-				radius * 0.35, radius * 0.3, radius * 0.35, 0.12);
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, c.x, c.y, c.z, (int) Math.min(120, 20 + radius * 6),
-				radius * 0.4, radius * 0.35, radius * 0.4, 0.05);
-		level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, (int) Math.min(60, radius * 3),
-				radius * 0.3, radius * 0.2, radius * 0.3, 0);
 
 		// Dégâts de zone : plein pot au centre, décroissants vers le bord ; la chaleur enflamme au-delà.
-		AABB box = new AABB(c, c).inflate(radius * 1.5);
+		AABB box = new AABB(c, c).inflate(radius * 2.0);
 		for (LivingEntity target : level.getEntitiesOfClass(LivingEntity.class, box,
 				e -> e.isAlive() && !e.isSpectator() && !e.getUUID().equals(owner))) {
 			Vec3 center = target.position().add(0, target.getBbHeight() / 2.0, 0);
 			double dist = center.distanceTo(c);
 			if (dist <= radius) {
 				double falloff = Math.max(0.25, 1.0 - dist / radius);
-				MeraAbilities.hurt(level, owner, target, (float) (damage * falloff), 8);
+				MeraAbilities.hurt(level, owner, target, (float) (damage * falloff), cfg.burnSeconds);
 				Vec3 away = center.subtract(c).normalize();
 				double force = Math.min(3.0, 0.5 + falloff * 1.8);
 				target.push(away.x * force, 0.3 + 0.4 * falloff, away.z * force);
-			} else if (dist <= radius * 1.5) {
-				target.igniteForSeconds(4.0F);
+			} else if (dist <= radius * 2.0) {
+				target.igniteForSeconds(cfg.burnSeconds * 0.6F);
 			}
 		}
 
-		if (MeraAbilities.canSchedule()) {
+		if (vfx && MeraAbilities.canSchedule()) {
 			MeraAbilities.schedule(new Shockwave(level, c, radius));
+		}
+		// Hiken / Dai Enkai (grosses explosions) : le sol prend feu tout autour et un brasier reste sur la zone.
+		if (radius >= 3.0) {
+			if (cfg.setFires) {
+				igniteArea(level, c, radius, cfg);
+			}
+			if (cfg.blazeTicks > 0 && MeraAbilities.canSchedule()) {
+				MeraAbilities.schedule(new Blaze(level, owner, c, radius * 1.5, cfg.blazeTicks));
+			}
+			// Colonne de flammes au centre.
+			level.sendParticles(ParticleTypes.FLAME, c.x, c.y + radius * 0.5, c.z, (int) Math.min(200, radius * 12),
+					radius * 0.25, radius * 0.6, radius * 0.25, 0.08);
+			level.sendParticles(ParticleTypes.LAVA, c.x, c.y, c.z, (int) Math.min(40, radius * 3), radius * 0.4, 0.3, radius * 0.4, 0);
 		}
 		if (cfg.destroyBlocks) {
 			BlockDestruction destruction = BlockDestruction.create(level, c, radius);
 			if (destruction != null) {
 				MeraAbilities.schedule(destruction);
 			}
+		}
+	}
+
+	/** Pose des flammes sur le sol tout autour de l'explosion (pas dans le cratère : sur le terrain intact). */
+	private static void igniteArea(ServerLevel level, Vec3 c, double radius, MeraConfig cfg) {
+		RandomSource random = level.getRandom();
+		double outer = radius * 1.8;
+		int attempts = (int) Math.min(600, outer * outer * cfg.fireDensity);
+		int placed = 0;
+		BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+		for (int i = 0; i < attempts && placed < 300; i++) {
+			if (random.nextDouble() >= cfg.fireChance * 2.0) {
+				continue;
+			}
+			double a = random.nextDouble() * Math.PI * 2.0;
+			double r = radius * 0.5 + random.nextDouble() * (outer - radius * 0.5);
+			int x = (int) Math.floor(c.x + Math.cos(a) * r);
+			int z = (int) Math.floor(c.z + Math.sin(a) * r);
+			int top = (int) Math.floor(c.y + radius);
+			int bottom = (int) Math.floor(c.y - radius - 2);
+			for (int y = top; y >= bottom; y--) {
+				pos.set(x, y, z);
+				if (!level.isLoaded(pos)) {
+					break;
+				}
+				if (!level.getBlockState(pos).isAir()) {
+					continue;
+				}
+				BlockPos below = pos.below();
+				if (level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) {
+					level.setBlock(pos, Blocks.FIRE.defaultBlockState(), 3);
+					placed++;
+					break;
+				}
+			}
+		}
+	}
+
+	/** Brasier : la zone reste en feu un moment (flammes, braises, fumée) et enflamme tout ce qui s'y trouve. */
+	private static final class Blaze implements ActiveEffect {
+		private final ServerLevel level;
+		private final UUID owner;
+		private final Vec3 center;
+		private final double radius;
+		private final int duration;
+		private int age = 0;
+
+		Blaze(ServerLevel level, UUID owner, Vec3 center, double radius, int duration) {
+			this.level = level;
+			this.owner = owner;
+			this.center = center;
+			this.radius = radius;
+			this.duration = duration;
+		}
+
+		@Override
+		public boolean tick(MinecraftServer server) {
+			age++;
+			RandomSource random = level.getRandom();
+			double fade = 1.0 - age / (double) duration;
+			int count = (int) Math.max(4, Math.min(40, radius * 3 * fade));
+			for (int i = 0; i < count; i++) {
+				double a = random.nextDouble() * Math.PI * 2.0;
+				double r = Math.sqrt(random.nextDouble()) * radius;
+				double x = center.x + Math.cos(a) * r;
+				double z = center.z + Math.sin(a) * r;
+				double y = center.y - 0.5 + random.nextDouble() * 1.5;
+				level.sendParticles(ParticleTypes.FLAME, x, y, z, 1, 0.2, 0.3, 0.2, 0.03);
+				if (i % 3 == 0) {
+					level.sendParticles(ParticleTypes.LARGE_SMOKE, x, y + 1.0, z, 1, 0.2, 0.3, 0.2, 0.02);
+				}
+				if (i % 5 == 0) {
+					level.sendParticles(ParticleTypes.LAVA, x, y, z, 1, 0.1, 0.1, 0.1, 0.0);
+				}
+			}
+			if (age % 10 == 0) {
+				int burn = MeraConfig.get().burnSeconds;
+				AABB box = new AABB(center, center).inflate(radius, 3.0, radius);
+				for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, box,
+						e -> e.isAlive() && !e.isSpectator() && !e.getUUID().equals(owner))) {
+					if (e.position().distanceToSqr(center.x, e.getY(), center.z) <= radius * radius) {
+						e.igniteForSeconds(Math.max(4.0F, burn * 0.5F));
+						if (age % 20 == 0) {
+							MeraAbilities.hurt(level, owner, e, 2.0F, Math.max(4, burn / 2));
+						}
+					}
+				}
+			}
+			if (age % 30 == 0) {
+				level.playSound(null, center.x, center.y, center.z, SoundEvents.FIRE_AMBIENT, SoundSource.BLOCKS, 2.0F, 0.8F);
+			}
+			return age < duration;
 		}
 	}
 

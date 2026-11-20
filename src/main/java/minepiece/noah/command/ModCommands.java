@@ -44,6 +44,9 @@ public final class ModCommands {
 			dispatcher.register(race);
 			LevelCommands.register(dispatcher);
 			FruitCommands.register(dispatcher);
+			BerryCommands.register(dispatcher);
+			SkyIslandCommands.register(dispatcher);
+			HakiCommands.register(dispatcher);
 
 			// ---- /prime
 			dispatcher.register(Commands.literal("prime")

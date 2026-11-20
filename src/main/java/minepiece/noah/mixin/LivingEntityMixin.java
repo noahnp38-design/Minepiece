@@ -1,5 +1,6 @@
 package minepiece.noah.mixin;
 
+import minepiece.noah.ability.supa.SupaAbilities;
 import minepiece.noah.data.ModAttachments;
 import minepiece.noah.data.PlayerProfile;
 import minepiece.noah.data.Race;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 
-/** Réduit de 30 % les dégâts reçus par les Lunariens. */
+/** Réduit de 30 % les dégâts reçus par les Lunariens ; passif Corps d'acier du Supa Supa no Mi. */
 @Mixin(LivingEntity.class)
 public abstract class LivingEntityMixin {
 	@ModifyVariable(
@@ -35,5 +36,23 @@ public abstract class LivingEntityMixin {
 			}
 		}
 		return amount;
+	}
+
+	/** Corps d'acier (Supa Supa no Mi) : -30 % de dégâts physiques reçus, +2 aux coups de mêlée du porteur. Une seule fois par coup. */
+	@ModifyVariable(
+			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+			at = @At("HEAD"),
+			argsOnly = true)
+	private float minepiece$steelBody(float amount, ServerLevel level, DamageSource source) {
+		return SupaAbilities.modifyDamage((LivingEntity) (Object) this, level, source, amount);
+	}
+
+	/** Ushi Ushi no Mi : -20 % de dégâts reçus en forme hybride, -25 % en forme girafe. */
+	@ModifyVariable(
+			method = "hurtServer(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+			at = @At("HEAD"),
+			argsOnly = true)
+	private float minepiece$giraffeResistance(float amount, ServerLevel level, DamageSource source) {
+		return minepiece.noah.ability.giraffe.GiraffeAbilities.modifyDamage((LivingEntity) (Object) this, level, source, amount);
 	}
 }

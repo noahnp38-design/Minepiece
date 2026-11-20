@@ -1,0 +1,7 @@
+{
+ "parent": "minepiece:item/shisui",
+ "textures": {
+  "0": "minepiece:item/haki/shisui_koka_2",
+  "particle": "minepiece:item/haki/shisui_koka_2"
+ }
+}

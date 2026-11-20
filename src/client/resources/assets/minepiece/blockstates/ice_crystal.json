@@ -1,0 +1,21 @@
+{
+ "variants": {
+  "": [
+   {
+    "model": "minepiece:block/ice_crystal"
+   },
+   {
+    "model": "minepiece:block/ice_crystal",
+    "y": 90
+   },
+   {
+    "model": "minepiece:block/ice_crystal",
+    "y": 180
+   },
+   {
+    "model": "minepiece:block/ice_crystal",
+    "y": 270
+   }
+  ]
+ }
+}

@@ -34,9 +34,9 @@ public class RaceLayer extends RenderLayer<AvatarRenderState, PlayerModel> {
 	public RaceLayer(AvatarRenderer renderer, EntityRendererProvider.Context context) {
 		super(renderer);
 		this.renderer = renderer;
-		this.skypian = new RaceExtrasModel(context.bakeLayer(RaceModels.SKYPIEAN));
+		this.skypian = new RaceExtrasModel(context.bakeLayer(RaceModels.SKYPIEAN), true);
 		this.fishman = new RaceExtrasModel(context.bakeLayer(RaceModels.FISHMAN));
-		this.lunarian = new RaceExtrasModel(context.bakeLayer(RaceModels.LUNARIAN));
+		this.lunarian = new RaceExtrasModel(context.bakeLayer(RaceModels.LUNARIAN), true);
 		this.lunarianFlame = new RaceExtrasModel(context.bakeLayer(RaceModels.LUNARIAN_FLAME));
 	}
 

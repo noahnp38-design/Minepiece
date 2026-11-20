@@ -1,0 +1,1 @@
+{"textures":{"0":"minepiece:item/fx/haki_ring_emission","particle":"minepiece:item/fx/haki_ring_emission"},"elements":[{"name":"ring","from":[-16.0,8.0,-16.0],"to":[32.0,8.0,32.0],"faces":{"up":{"uv":[0,0,16,16],"texture":"#0"},"down":{"uv":[0,16,16,0],"texture":"#0"}}}]}

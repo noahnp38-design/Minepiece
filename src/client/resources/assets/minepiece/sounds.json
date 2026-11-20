@@ -1,0 +1,11 @@
+{
+  "fire_gun": {
+    "sounds": [
+      {
+        "name": "minepiece:fire_gun",
+        "stream": false
+      }
+    ],
+    "subtitle": "subtitles.minepiece.fire_gun"
+  }
+}

@@ -10,6 +10,7 @@ import java.util.UUID;
 import minepiece.noah.ability.FruitAbilities;
 import minepiece.noah.data.DevilFruit;
 import minepiece.noah.data.ModAttachments;
+import minepiece.noah.sound.ModSounds;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -29,7 +30,7 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Pouvoirs du Mera Mera no Mi (fruit du Feu).
- * Slot 0 = Fire Gun (maintenir), slot 1 = Hiken (préparation puis tir), slot 2 = Dai Enkai : Entei (maintenir = charger, relâcher = tirer).
+ * Slot 0 = Fire Gun (un appui lance 3,2 s de tir), slot 1 = Hiken (préparation puis tir), slot 2 = Dai Enkai : Entei (maintenir = charger, relâcher = tirer).
  */
 public final class MeraAbilities {
 	private enum Type { FIRE_GUN, HIKEN, ENTEI }
@@ -54,20 +55,35 @@ public final class MeraAbilities {
 	private static final Map<UUID, Cast> CASTS = new HashMap<>();
 	private static final List<ActiveEffect> EFFECTS = new ArrayList<>();
 	private static final List<ActiveEffect> PENDING = new ArrayList<>();
+	/** Pour chaque joueur : tick de jeu avant lequel le son du Fire Gun ne doit pas être relancé (évite les sons superposés). */
+	private static final Map<UUID, Long> FIRE_GUN_SOUND_UNTIL = new HashMap<>();
 
 	private MeraAbilities() {}
 
 	public static void init() {
 		MeraConfig.load();
 		// Rien de visuel ne doit rester dans le monde sauvegardé.
-		ServerLifecycleEvents.SERVER_STOPPING.register(server -> FireballVisual.cleanupAll());
+		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+			FireballVisual.cleanupAll();
+			FireGunVisual.cleanupAll();
+			HikenVisual.cleanupAll();
+			FIRE_GUN_SOUND_UNTIL.clear();
+		});
 		ServerLifecycleEvents.SERVER_STARTED.register(FireballVisual::killStray);
 	}
 
 	public static void forget(UUID player) {
+		FIRE_GUN_SOUND_UNTIL.remove(player);
 		Cast cast = CASTS.remove(player);
 		if (cast != null) {
 			dispose(cast);
+		}
+	}
+
+	/** Main droite levée pendant la charge de l'Entei (synchronisé aux clients ; ne change rien si l'état est déjà bon). */
+	private static void setRaisedHand(ServerPlayer player, boolean raised) {
+		if (Boolean.TRUE.equals(player.getAttached(ModAttachments.RAISE_HAND)) != raised) {
+			player.setAttached(ModAttachments.RAISE_HAND, raised);
 		}
 	}
 
@@ -134,6 +150,9 @@ public final class MeraAbilities {
 					|| player.getAttached(ModAttachments.FRUIT) != DevilFruit.MERA_MERA_NO_MI
 					|| !(player.level() instanceof ServerLevel level)) {
 				dispose(entry.getValue());
+				if (player != null) {
+					setRaisedHand(player, false);
+				}
 				it.remove();
 				continue;
 			}
@@ -142,6 +161,9 @@ public final class MeraAbilities {
 				case HIKEN -> tickHiken(player, level, entry.getValue());
 				case ENTEI -> tickEntei(player, level, entry.getValue());
 			};
+			if (entry.getValue().type == Type.ENTEI) {
+				setRaisedHand(player, keep && entry.getValue().held);
+			}
 			if (!keep) {
 				dispose(entry.getValue());
 				it.remove();
@@ -158,7 +180,8 @@ public final class MeraAbilities {
 	private static boolean tickFireGun(ServerPlayer player, ServerLevel level, Cast cast) {
 		MeraConfig cfg = MeraConfig.get();
 		long age = level.getGameTime() - cast.start;
-		if (!cast.held || age > cfg.fireGunMaxHoldTicks) {
+		// Un appui lance le tir ; il dure exactement fireGunDurationTicks (3,2 s), que la touche reste appuyée ou non.
+		if (age >= cfg.fireGunDurationTicks) {
 			FruitAbilities.startCooldown(player, cast.slot, DevilFruit.MERA_MERA_NO_MI.cooldownTicks(cast.slot));
 			return false;
 		}
@@ -180,10 +203,24 @@ public final class MeraAbilities {
 			schedule(new FireProjectile(level, player.getUUID(), FireProjectile.Kind.BULLET, hand,
 					dir.scale(cfg.fireGunSpeed), 0.4, (float) cfg.fireGunDamage, 0, 0, cfg.fireGunLifeTicks));
 			level.sendParticles(ParticleTypes.FLAME, hand.x, hand.y, hand.z, 4, 0.08, 0.08, 0.08, 0.03);
-			level.playSound(null, hand.x, hand.y, hand.z, SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS,
-					0.4F, 1.4F + random.nextFloat() * 0.4F);
+			playFireGunSound(level, player, hand, cfg);
 		}
 		return true;
+	}
+
+	/**
+	 * Son du Fire Gun : joué une seule fois au lancement de la première balle, puis relancé seulement quand il est fini
+	 * si le joueur continue de tirer (le son dure 3,8 s alors qu'une balle part toutes les 2 ticks). Ni à chaque balle, ni
+	 * à chaque tick, et jamais deux fois en même temps pour un même joueur, même s'il retire tout de suite après.
+	 */
+	private static void playFireGunSound(ServerLevel level, ServerPlayer player, Vec3 at, MeraConfig cfg) {
+		long now = level.getGameTime();
+		Long until = FIRE_GUN_SOUND_UNTIL.get(player.getUUID());
+		if (until != null && now < until) {
+			return;
+		}
+		FIRE_GUN_SOUND_UNTIL.put(player.getUUID(), now + cfg.fireGunSoundIntervalTicks);
+		level.playSound(null, at.x, at.y, at.z, ModSounds.FIRE_GUN, SoundSource.PLAYERS, 0.8F, 1.0F);
 	}
 
 	// ------------------------------------------------------------------ 2. Hiken
@@ -212,8 +249,8 @@ public final class MeraAbilities {
 		if (canSchedule()) {
 			Vec3 aim = player.getEyePosition().add(look.scale(60.0));
 			Vec3 dir = aim.subtract(ball).normalize();
-			schedule(new FireProjectile(level, player.getUUID(), FireProjectile.Kind.BIG, ball,
-					dir.scale(cfg.hikenSpeed), cfg.hikenRadius, 0, cfg.hikenBlastRadius, (float) cfg.hikenDamage, 60));
+			schedule(FireProjectile.hiken(level, player.getUUID(), ball,
+					dir.scale(cfg.hikenSpeed), cfg.hikenRadius, cfg.hikenBlastRadius, (float) cfg.hikenDamage, 60));
 		}
 		level.playSound(null, ball.x, ball.y, ball.z, SoundEvents.BLAZE_SHOOT, SoundSource.PLAYERS, 2.0F, 0.5F);
 		level.sendParticles(ParticleTypes.FLAME, ball.x, ball.y, ball.z, 40, 0.5, 0.5, 0.5, 0.15);
@@ -230,7 +267,8 @@ public final class MeraAbilities {
 		double t = charge / (double) cfg.enteiMaxChargeTicks;
 		double radius = Mth.lerp(t, cfg.enteiMinRadius, cfg.enteiMaxRadius);
 
-		Vec3 ball = player.position().add(0, player.getBbHeight() + 0.8 + radius, 0);
+		// La sphère 3D fait ~2,4 x le rayon de large (rayon visuel ~1,2 x) : on la monte pour qu'elle ne rentre pas dans la tête.
+		Vec3 ball = player.position().add(0, player.getBbHeight() + 1.0 + radius * 1.35, 0);
 		BlockPos ballPos = BlockPos.containing(ball);
 		if (!level.getBlockState(ballPos).getCollisionShape(level, ballPos).isEmpty()) {
 			ball = player.getEyePosition().add(0, 0.5, 0); // plafond au-dessus de la tête : la boule reste près du joueur
@@ -274,7 +312,7 @@ public final class MeraAbilities {
 			FireballVisual visual = cast.visual;
 			cast.visual = null;
 			if (visual != null) {
-				visual.launchFlash();
+				visual.launchFlash(dir);
 			}
 			schedule(new FireProjectile(level, player.getUUID(), FireProjectile.Kind.BIG, ball,
 					dir.scale(cfg.enteiSpeed), radius, 0, blast, damage, 120, visual));

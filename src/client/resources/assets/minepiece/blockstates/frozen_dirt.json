@@ -1,0 +1,21 @@
+{
+ "variants": {
+  "": [
+   {
+    "model": "minepiece:block/frozen_dirt"
+   },
+   {
+    "model": "minepiece:block/frozen_dirt",
+    "y": 90
+   },
+   {
+    "model": "minepiece:block/frozen_dirt",
+    "y": 180
+   },
+   {
+    "model": "minepiece:block/frozen_dirt",
+    "y": 270
+   }
+  ]
+ }
+}

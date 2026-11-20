@@ -1,7 +1,9 @@
 package minepiece.noah.network;
 
 import minepiece.noah.ability.FruitAbilities;
+import minepiece.noah.ability.giraffe.GiraffeAbilities;
 import minepiece.noah.data.CombatStyle;
+import minepiece.noah.data.DevilFruit;
 import minepiece.noah.data.Faction;
 import minepiece.noah.data.ModAttachments;
 import minepiece.noah.data.PlayerProfile;
@@ -21,6 +23,17 @@ public final class ModNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(OpenSelectionPayload.TYPE, OpenSelectionPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(SelectionPayload.TYPE, SelectionPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(UseAbilityPayload.TYPE, UseAbilityPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(WadoShakePayload.TYPE, WadoShakePayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(GravityZonePayload.TYPE, GravityZonePayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(FruitCooldownPayload.TYPE, FruitCooldownPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(FruitChestStartPayload.TYPE, FruitChestStartPayload.CODEC);
+		minepiece.noah.chest.FruitChestSystem.init();
+		PayloadTypeRegistry.clientboundPlay().register(CrewSyncPayload.TYPE, CrewSyncPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(CrewActionPayload.TYPE, CrewActionPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(CrewMessagePayload.TYPE, CrewMessagePayload.CODEC);
+		minepiece.noah.crew.CrewManager.init();
+		ServerPlayNetworking.registerGlobalReceiver(CrewActionPayload.TYPE,
+				(payload, context) -> minepiece.noah.crew.CrewManager.handle(context.player(), payload));
 
 		// À la connexion : si le joueur n'a pas encore de profil, on lui demande d'en choisir un.
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -32,12 +45,29 @@ public final class ModNetworking {
 			}
 		});
 
-		// Attaque de fruit du démon : le serveur vérifie le fruit, la recharge, etc.
+		// Touche d'attaque : attaque du fruit du démon.
+		// Le serveur vérifie tout (objet en main, fruit, recharge...).
 		ServerPlayNetworking.registerGlobalReceiver(UseAbilityPayload.TYPE, (payload, context) -> {
-			if (payload.pressed()) {
-				FruitAbilities.use(context.player(), payload.slot());
+			int slot = payload.slot();
+			if (slot == GiraffeAbilities.SLOT_CYCLE && context.player().getAttached(ModAttachments.FRUIT) == DevilFruit.ISHI_ISHI_NO_MI) {
+				// Ishi Ishi no Mi : V transforme en Titan de pierre / libère du titan (comme la 3e touche d'attaque)
+				if (payload.pressed()) {
+					FruitAbilities.use(context.player(), 2);
+				}
+			} else if (slot == GiraffeAbilities.SLOT_CYCLE || slot == GiraffeAbilities.SLOT_HUMAN) {
+				// Touches V / B : changement de forme du Ushi Ushi no Mi (le serveur revérifie tout).
+				if (payload.pressed()) {
+					GiraffeAbilities.requestForm(context.player(), slot == GiraffeAbilities.SLOT_HUMAN);
+				}
+			} else if (slot >= DevilFruit.ABILITY_COUNT) {
+				// Touches Z / X / C (slots 3..5) : attaques du Suke Suke no Mi.
+				if (payload.pressed() && slot < 2 * DevilFruit.ABILITY_COUNT) {
+					FruitAbilities.useAlt(context.player(), slot - DevilFruit.ABILITY_COUNT);
+				}
+			} else if (payload.pressed()) {
+				FruitAbilities.use(context.player(), slot);
 			} else {
-				FruitAbilities.release(context.player(), payload.slot());
+				FruitAbilities.release(context.player(), slot);
 			}
 		});
 
@@ -57,6 +87,7 @@ public final class ModNetworking {
 
 			player.setAttached(ModAttachments.PROFILE, new PlayerProfile(race, faction, style));
 			RaceEffects.apply(player);
+			minepiece.noah.crew.CrewManager.sync(player);
 			player.sendSystemMessage(Component.literal(
 					"Bienvenue à Grand Line ! " + race.displayName() + " / "
 							+ faction.displayName() + " / " + style.displayName()));

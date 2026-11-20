@@ -1,5 +1,6 @@
 package minepiece.noah.ability.mera;
 
+import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
@@ -13,6 +14,9 @@ import net.minecraft.world.phys.Vec3;
  * ce qui donne du mouvement sans coût serveur.
  */
 final class FireFx {
+	private static final DustParticleOptions YELLOW = new DustParticleOptions(0xFFD83A, 1.6F);
+	private static final DustParticleOptions ORANGE = new DustParticleOptions(0xFF8A1C, 1.9F);
+
 	private FireFx() {}
 
 	/** Pendant la charge : anneaux de flammes qui tournent, braises qui montent, arcs de feu, mini-explosions. */
@@ -85,15 +89,36 @@ final class FireFx {
 		Vec3 back = velocity.lengthSqr() < 1.0E-6 ? new Vec3(0, 0, 0) : velocity.normalize().scale(-1.0);
 		int n = (int) Math.min(14, 4 + radius * 2);
 		for (int i = 0; i < n; i++) {
-			Vec3 p = pos.add(back.scale(rnd.nextDouble() * radius * 2.5)).add(
+			// La traînée démarre derrière la sphère (0.9 rayon) : elle ne passe plus devant la texture.
+			Vec3 p = pos.add(back.scale(radius * (0.9 + rnd.nextDouble() * 2.5))).add(
 					(rnd.nextDouble() - 0.5) * radius * 0.8,
 					(rnd.nextDouble() - 0.5) * radius * 0.8,
 					(rnd.nextDouble() - 0.5) * radius * 0.8);
 			level.sendParticles(ParticleTypes.FLAME, p.x, p.y, p.z, 0, back.x, back.y, back.z, 0.05 + rnd.nextDouble() * 0.1);
 		}
-		level.sendParticles(ParticleTypes.LARGE_SMOKE, pos.x, pos.y, pos.z, 2, radius * 0.4, radius * 0.4, radius * 0.4, 0.01);
+		// Double spirale de flammes qui s'enroule autour de la trajectoire (style "soleil" : elle tourne avec le temps).
+		Vec3 axis = back.scale(-1.0);
+		if (axis.lengthSqr() > 1.0E-6) {
+			Vec3 u = axis.cross(Math.abs(axis.y) > 0.9 ? new Vec3(1, 0, 0) : new Vec3(0, 1, 0)).normalize();
+			Vec3 w = axis.cross(u).normalize();
+			double phase = level.getGameTime() * 0.5;
+			for (int k = 0; k < 7; k++) {
+				double along = radius * (0.9 + k * 0.45);
+				double a = phase + k * 0.9;
+				for (int arm = 0; arm < 2; arm++) {
+					double aa = a + arm * Math.PI;
+					double rr = radius * (0.95 + 0.04 * k);
+					Vec3 p = pos.add(back.scale(along)).add(u.scale(Math.cos(aa) * rr)).add(w.scale(Math.sin(aa) * rr));
+					level.sendParticles(arm == 0 ? ParticleTypes.FLAME : ParticleTypes.SMALL_FLAME, p.x, p.y, p.z, 0,
+							back.x, back.y, back.z, 0.04);
+				}
+			}
+		}
+		// Fumée et gouttes de lave émises derrière la sphère, pas au centre (sinon elles assombrissent la texture).
+		Vec3 behind = pos.add(back.scale(radius * 1.3));
+		level.sendParticles(ParticleTypes.LARGE_SMOKE, behind.x, behind.y, behind.z, 2, radius * 0.3, radius * 0.3, radius * 0.3, 0.01);
 		if (level.getGameTime() % 3 == 0) {
-			level.sendParticles(ParticleTypes.LAVA, pos.x, pos.y, pos.z, 1, radius * 0.4, radius * 0.4, radius * 0.4, 0.0);
+			level.sendParticles(ParticleTypes.LAVA, behind.x, behind.y, behind.z, 1, radius * 0.3, radius * 0.3, radius * 0.3, 0.0);
 		}
 	}
 
@@ -126,6 +151,25 @@ final class FireFx {
 		}
 		level.sendParticles(ParticleTypes.LAVA, at.x, at.y, at.z, (int) Math.min(40, blastRadius * 2),
 				blastRadius * 0.2, blastRadius * 0.15, blastRadius * 0.2, 0.0);
+
+		// Pilier de feu : une colonne de flammes qui jaillit vers le haut, avec un halo jaune-orange.
+		for (int i = 0; i < 22; i++) {
+			double a = rnd.nextDouble() * Math.PI * 2.0;
+			double rr = rnd.nextDouble() * blastRadius * 0.12;
+			level.sendParticles(ParticleTypes.FLAME, at.x + Math.cos(a) * rr, at.y, at.z + Math.sin(a) * rr, 0,
+					0.0, 1.0, 0.0, 0.4 + rnd.nextDouble() * 0.5);
+		}
+		for (int h = 0; h < 6; h++) {
+			double y = at.y + h * blastRadius * 0.12;
+			level.sendParticles(h < 3 ? YELLOW : ORANGE, at.x, y, at.z, 3, blastRadius * 0.08, 0.1, blastRadius * 0.08, 0.0);
+		}
+		// Couronne de poussière jaune au sol.
+		int points = 32;
+		for (int i = 0; i < points; i++) {
+			double a = 2.0 * Math.PI * i / points;
+			level.sendParticles(i % 2 == 0 ? YELLOW : ORANGE, at.x + Math.cos(a) * blastRadius * 0.45, at.y + 0.3,
+					at.z + Math.sin(a) * blastRadius * 0.45, 1, 0.05, 0.05, 0.05, 0.0);
+		}
 	}
 
 	private static Vec3 randomUnit(RandomSource rnd) {

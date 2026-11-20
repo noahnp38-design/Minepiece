@@ -1,0 +1,21 @@
+{
+ "variants": {
+  "": [
+   {
+    "model": "minepiece:block/frozen_stone"
+   },
+   {
+    "model": "minepiece:block/frozen_stone",
+    "y": 90
+   },
+   {
+    "model": "minepiece:block/frozen_stone",
+    "y": 180
+   },
+   {
+    "model": "minepiece:block/frozen_stone",
+    "y": 270
+   }
+  ]
+ }
+}

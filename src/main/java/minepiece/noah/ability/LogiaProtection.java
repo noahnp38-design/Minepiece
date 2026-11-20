@@ -26,8 +26,17 @@ public final class LogiaProtection {
 		if (fruit == null || !fruit.isLogia()) {
 			return false;
 		}
+		// Malédiction du Démon : le corps n'est plus que chair, l'invulnérabilité Logia est scellée avec le reste.
+		if (DemonCurse.isSuppressed(player)) {
+			return false;
+		}
 		// Le vide, /kill, etc. passent toujours.
 		if (source.is(DamageTypeTags.BYPASSES_INVULNERABILITY)) {
+			return false;
+		}
+		// Haki de l'Armement : le coup touche le corps réel du Logia (pour ce coup seulement, l'effet Logia reste).
+		boolean physical = source.is(DamageTypeTags.IS_PROJECTILE) || source.getDirectEntity() instanceof LivingEntity;
+		if (physical && minepiece.noah.haki.Busoshoku.piercesLogia(entity, source)) {
 			return false;
 		}
 		return source.is(DamageTypeTags.IS_PROJECTILE) || source.getDirectEntity() instanceof LivingEntity;

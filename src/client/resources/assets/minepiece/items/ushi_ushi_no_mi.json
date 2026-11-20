@@ -1,0 +1,22 @@
+{
+ "model": {
+  "type": "minecraft:select",
+  "property": "minecraft:display_context",
+  "cases": [
+   {
+    "when": [
+     "gui",
+     "fixed"
+    ],
+    "model": {
+     "type": "minecraft:model",
+     "model": "minepiece:item/ushi_ushi_no_mi"
+    }
+   }
+  ],
+  "fallback": {
+   "type": "minecraft:model",
+   "model": "minepiece:item/ushi_ushi_no_mi_3d"
+  }
+ }
+}

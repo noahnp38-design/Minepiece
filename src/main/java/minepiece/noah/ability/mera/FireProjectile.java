@@ -31,6 +31,11 @@ final class FireProjectile implements ActiveEffect {
 	private final float blastDamage;
 	/** Boule 3D qui accompagne le projectile (null pour les tirs sans visuel : Fire Gun, Hiken). */
 	private final FireballVisual visual;
+	/** Sprite animé de la balle du Fire Gun (null pour Hiken et Entei). */
+	private final FireGunVisual bulletVisual;
+	/** Poing de feu du Hiken (null pour Fire Gun et Entei : leur rendu ne change pas). */
+	private final HikenVisual fist;
+	private final boolean hiken;
 	private Vec3 pos;
 	private int life;
 
@@ -39,9 +44,23 @@ final class FireProjectile implements ActiveEffect {
 		this(level, owner, kind, pos, velocity, radius, damage, blastRadius, blastDamage, life, null);
 	}
 
+	/** Hiken : même comportement que BIG, avec le poing de feu, la traînée et l'explosion dédiés. */
+	static FireProjectile hiken(ServerLevel level, UUID owner, Vec3 pos, Vec3 velocity, double radius,
+			double blastRadius, float blastDamage, int life) {
+		return new FireProjectile(level, owner, Kind.BIG, pos, velocity, radius, 0, blastRadius, blastDamage, life, null, true);
+	}
+
 	FireProjectile(ServerLevel level, UUID owner, Kind kind, Vec3 pos, Vec3 velocity, double radius,
 			float damage, double blastRadius, float blastDamage, int life, FireballVisual visual) {
+		this(level, owner, kind, pos, velocity, radius, damage, blastRadius, blastDamage, life, visual, false);
+	}
+
+	private FireProjectile(ServerLevel level, UUID owner, Kind kind, Vec3 pos, Vec3 velocity, double radius,
+			float damage, double blastRadius, float blastDamage, int life, FireballVisual visual, boolean hiken) {
+		this.hiken = hiken;
+		this.fist = hiken ? HikenVisual.create(level, pos, velocity, radius) : null;
 		this.visual = visual;
+		this.bulletVisual = kind == Kind.BULLET ? FireGunVisual.create(level, pos, velocity, radius) : null;
 		this.level = level;
 		this.owner = owner;
 		this.kind = kind;
@@ -58,11 +77,15 @@ final class FireProjectile implements ActiveEffect {
 	public boolean tick(MinecraftServer server) {
 		if (life-- <= 0) {
 			if (kind == Kind.BIG) {
-				FireExplosion.explode(level, owner, pos, blastRadius, blastDamage);
+				FireExplosion.explode(level, owner, pos, blastRadius, blastDamage, !hiken);
+				if (hiken) {
+					HikenFx.impact(level, pos, blastRadius);
+				}
 				if (visual != null) {
 					visual.burst(pos, blastRadius);
 				}
 			}
+			removeBullet();
 			return false;
 		}
 
@@ -76,6 +99,7 @@ final class FireProjectile implements ActiveEffect {
 				if (visual != null) {
 					visual.remove();
 				}
+				removeBullet();
 				return false;
 			}
 			BlockState state = level.getBlockState(blockPos);
@@ -100,8 +124,12 @@ final class FireProjectile implements ActiveEffect {
 	}
 
 	private void impact(Vec3 at, LivingEntity target) {
+		removeBullet();
 		if (kind == Kind.BIG) {
-			FireExplosion.explode(level, owner, at, blastRadius, blastDamage);
+			FireExplosion.explode(level, owner, at, blastRadius, blastDamage, !hiken);
+			if (hiken) {
+				HikenFx.impact(level, at, blastRadius);
+			}
 			if (visual != null) {
 				visual.burst(at, blastRadius);
 			}
@@ -115,12 +143,29 @@ final class FireProjectile implements ActiveEffect {
 		level.playSound(null, at.x, at.y, at.z, SoundEvents.LAVA_POP, SoundSource.PLAYERS, 0.5F, 1.3F);
 	}
 
+	private void removeBullet() {
+		if (bulletVisual != null) {
+			bulletVisual.remove();
+		}
+		if (fist != null) {
+			fist.remove();
+		}
+	}
+
 	private void trail() {
 		if (kind == Kind.BULLET) {
-			level.sendParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z, 3, 0.08, 0.08, 0.08, 0.01);
-			level.sendParticles(ParticleTypes.SMALL_FLAME, pos.x, pos.y, pos.z, 2, 0.12, 0.12, 0.12, 0.02);
+			if (bulletVisual != null && bulletVisual.update(pos)) {
+				// Le sprite animé porte la flamme et la traînée : il ne reste que les braises autour.
+				FireGunVisual.embers(level, pos, velocity);
+			} else {
+				// Secours (rendu 3D indisponible) : ancien rendu en particules.
+				level.sendParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z, 3, 0.08, 0.08, 0.08, 0.01);
+				level.sendParticles(ParticleTypes.SMALL_FLAME, pos.x, pos.y, pos.z, 2, 0.12, 0.12, 0.12, 0.02);
+			}
 		} else {
-			if (visual != null) {
+			if (hiken && fist != null && fist.update(pos)) {
+				HikenFx.trail(level, pos, velocity, radius);
+			} else if (visual != null) {
 				visual.update(pos, radius, 1.0);
 				FireFx.trail(level, pos, velocity, radius);
 			} else {

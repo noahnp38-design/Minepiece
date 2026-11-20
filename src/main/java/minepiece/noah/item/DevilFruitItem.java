@@ -53,7 +53,7 @@ public class DevilFruitItem extends Item {
 		sp.setAttached(ModAttachments.FRUIT, fruit);
 		sp.playSound(SoundEvents.PLAYER_BURP, 1.0F, 0.8F);
 		sp.sendSystemMessage(Component.literal("Tu as mangé le " + fruit.displayName()
-				+ " ! Attaques : R / G / V (modifiable dans les contrôles)."));
+				+ " ! Attaques : Z / X / C (modifiable dans les contrôles)."));
 		// super retire le fruit de l'inventaire (sauf en créatif).
 		return super.finishUsingItem(stack, level, entity);
 	}

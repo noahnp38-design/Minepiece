@@ -1,0 +1,24 @@
+{
+ "textures": {
+  "0": "minepiece:item/fx/fire_gun",
+  "particle": "minepiece:item/fx/fire_gun"
+ },
+ "elements": [
+  {
+   "from": [0, 0, 8],
+   "to": [16, 16, 8],
+   "faces": {
+    "north": { "uv": [16, 0, 0, 16], "texture": "#0" },
+    "south": { "uv": [0, 0, 16, 16], "texture": "#0" }
+   }
+  },
+  {
+   "from": [0, 8, 0],
+   "to": [16, 8, 16],
+   "faces": {
+    "up": { "uv": [0, 0, 16, 16], "texture": "#0" },
+    "down": { "uv": [0, 0, 16, 16], "texture": "#0" }
+   }
+  }
+ ]
+}

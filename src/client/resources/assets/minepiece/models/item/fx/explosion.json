@@ -1,0 +1,40 @@
+{
+ "textures": {
+  "0": "minepiece:item/fx/explosion",
+  "particle": "minepiece:item/fx/explosion"
+ },
+ "elements": [
+  {
+   "from": [
+    0,
+    0,
+    8
+   ],
+   "to": [
+    16,
+    16,
+    8
+   ],
+   "faces": {
+    "north": {
+     "uv": [
+      0,
+      0,
+      16,
+      16
+     ],
+     "texture": "#0"
+    },
+    "south": {
+     "uv": [
+      0,
+      0,
+      16,
+      16
+     ],
+     "texture": "#0"
+    }
+   }
+  }
+ ]
+}

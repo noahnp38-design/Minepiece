@@ -28,7 +28,7 @@ public final class WingAnimator {
 
 	/** Décalage gauche / droite : le Skypiéen bat en alternance marquée, le Lunarien plus en puissance. */
 	private static float stagger(Race race) {
-		return race == Race.SKYPIEAN ? 1.1F : 0.35F;
+		return 0.0F; // les deux ailes battent en même temps
 	}
 
 	private static final class Data {
@@ -40,6 +40,9 @@ public final class WingAnimator {
 	}
 
 	private static final Map<Entity, Data> DATA = new WeakHashMap<>();
+	/** Vitesse de battement des grandes ailes à plumes (Skypiéen, Lunarien) : 0.55 = 45 % plus lent. */
+	private static final float SKYPIEAN_RATE = 0.55F;
+	private static final float TWO_PI_1000 = (float) (Math.PI * 2000.0);
 
 	private WingAnimator() {}
 
@@ -80,9 +83,12 @@ public final class WingAnimator {
 			openTarget = 0.0F;  // et les ailes se replient
 		}
 
+		if (race == Race.SKYPIEAN || race == Race.LUNARIAN) {
+			rate *= SKYPIEAN_RATE;   // grandes ailes à plumes : battement plus ample et plus lent
+		}
 		d.phase += dt * rate;
-		if (d.phase > 6283.0F) {
-			d.phase -= 6283.0F; // garde le nombre petit (précision des float)
+		if (d.phase > TWO_PI_1000) {
+			d.phase -= TWO_PI_1000; // garde le nombre petit (précision des float), sans à-coup
 		}
 		d.amp += (ampTarget - d.amp) * Math.min(1.0F, dt * 0.25F);
 		d.open += (openTarget - d.open) * Math.min(1.0F, dt * 0.2F);

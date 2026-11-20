@@ -7,7 +7,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.input.KeyEvent;
 
-/** Touche qui ouvre l'interface du profil (K par défaut, modifiable dans les contrôles). */
+/** Touche qui ouvre l'interface du profil (O par défaut : K est désormais le Haki de l'Observation ; modifiable dans les contrôles). */
 public final class ProfileKey {
 	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(MinePiece.id("general"));
 	private static KeyMapping key;
@@ -16,7 +16,7 @@ public final class ProfileKey {
 
 	public static void init() {
 		key = KeyMappingHelper.registerKeyMapping(
-				new KeyMapping("key.minepiece.profile", InputConstants.KEY_K, CATEGORY));
+				new KeyMapping("key.minepiece.profile", InputConstants.KEY_O, CATEGORY));
 
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (key.consumeClick()) {
@@ -32,8 +32,13 @@ public final class ProfileKey {
 		return key != null && key.matches(event);
 	}
 
-	/** Nom de la touche actuelle, par exemple "K". */
+	/** La touche du profil (pour éviter qu'elle s'ouvre en même temps qu'un Haki réglé sur la même touche). */
+	public static KeyMapping mapping() {
+		return key;
+	}
+
+	/** Nom de la touche actuelle, par exemple "O". */
 	public static String keyName() {
-		return key == null ? "K" : key.getTranslatedKeyMessage().getString();
+		return key == null ? "O" : key.getTranslatedKeyMessage().getString();
 	}
 }

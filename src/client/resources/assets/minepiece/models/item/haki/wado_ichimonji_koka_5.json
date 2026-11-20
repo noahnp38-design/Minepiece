@@ -1,0 +1,7 @@
+{
+ "parent": "minepiece:item/wado_ichimonji",
+ "textures": {
+  "0": "minepiece:item/haki/wado_ichimonji_koka_5",
+  "particle": "minepiece:item/haki/wado_ichimonji_koka_5"
+ }
+}
